@@ -34,7 +34,6 @@ public class MainActivity extends AppCompatActivity implements ItemsView {
 
     private void initializeList() {
         int spanCount = 4;
-
         GridLayoutManager gridLayoutManager = new GridLayoutManager(this, spanCount);
         gridLayoutManager.setSpanSizeLookup(new ItemsSpanSizeLookup(spanCount));
         mBinding.itemsList.setLayoutManager(gridLayoutManager);
@@ -46,7 +45,7 @@ public class MainActivity extends AppCompatActivity implements ItemsView {
                 mItemsPresenter.getItems();
             }
         });
-
+        mBinding.itemsList.setHasFixedSize(true);
     }
 
     @Override
