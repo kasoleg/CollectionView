@@ -48,7 +48,7 @@ public class ItemsPresenter {
     public void getItems() {
         List<Item> items = new ArrayList<>();
         Random random = new Random();
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < 1500; i++) {
             String title = titles[random.nextInt(titles.length - 1)];
             items.add(new Item(title));
         }
