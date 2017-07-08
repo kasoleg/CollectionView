@@ -9,6 +9,7 @@ import android.view.ViewGroup;
 import com.lorempixel.presentation.R;
 import com.lorempixel.presentation.databinding.ItemLayoutBinding;
 import com.lorempixel.presentation.model.Item;
+import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,13 +34,12 @@ public class ItemsAdapter extends RecyclerView.Adapter<ItemsAdapter.ItemViewHold
         int width = layoutParams.width;
         int height = layoutParams.height;
         Item item = mItemList.get(position);
-        item.setTitle(String.valueOf(position));
         holder.binding.setItem(item);
-        /*Picasso.with(holder.binding.itemImage.getContext())
+        Picasso.with(holder.binding.itemImage.getContext())
                 .load("http://lorempixel.com/" + 1920 + "/" + 1080 + "/?position=" + position)
                 .fit()
                 .centerCrop()
-                .into(holder.binding.itemImage);*/
+                .into(holder.binding.itemImage);
     }
 
     @Override

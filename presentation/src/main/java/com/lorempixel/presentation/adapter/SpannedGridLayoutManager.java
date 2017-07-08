@@ -2,7 +2,6 @@ package com.lorempixel.presentation.adapter;
 
 import android.graphics.Rect;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.util.SparseArray;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,13 +18,18 @@ public class SpannedGridLayoutManager extends RecyclerView.LayoutManager {
 
     private SpanSizeLookup mSpanSizeLookup;
 
-    private View mAnchorView;
-
     private SparseArray<View> cachedViews = new SparseArray<>();
-    private SparseArray<Span> spans = new SparseArray<>();
+
+    private int mAnchorTemplate = 0;
+
+    private int mAnchorRow = 0;
+
+    private int mLastOffset = 0;
+
+    private int mPosition = 0;
 
     public interface SpanSizeLookup {
-        SpanSize getSpanSize(int position);
+        Row getSpanSize(int position);
     }
 
     public SpannedGridLayoutManager(SpanSizeLookup spanSizeLookup, int columns) {
@@ -48,12 +52,7 @@ public class SpannedGridLayoutManager extends RecyclerView.LayoutManager {
     }
 
     private void fill(RecyclerView.Recycler recycler) {
-        View anchorView = getAnchorView();
         int childsCount = getChildCount();
-
-        if (anchorView != null) {
-            mAnchorView = anchorView;
-        }
 
         cachedViews.clear();
 
@@ -67,109 +66,32 @@ public class SpannedGridLayoutManager extends RecyclerView.LayoutManager {
             detachView(cachedViews.valueAt(i));
         }
 
-        filUp(mAnchorView, recycler);
-        fillDown(mAnchorView, recycler);
+        fillDown(recycler);
 
         for (int i = 0; i < cachedViews.size(); i++) {
             recycler.recycleView(cachedViews.valueAt(i));
         }
     }
 
-    private void filUp2(View anchorView, RecyclerView.Recycler recycler) {
-        int adapterPosition;
-        int position = 0;
-        int left, right, top, bottom;
+    private void fillDown(RecyclerView.Recycler recycler) {
+        int position = mPosition;
+        int row = mAnchorRow;
+        int itemsCount = getItemCount();
+        int left, right, top, bottom = 0;
+        int cellWidth = getWidth() / mColumns;
         int widthSpec;
         int heightSpec;
-        if (anchorView != null) {
-            position = getPosition(anchorView);
-        }
+        int height = getHeight();
+        int template = mAnchorTemplate;
 
-        position--;
+        while (position < itemsCount) {
+            Row rowSpan = mSpanSizeLookup.getSpanSize(template);
 
-        int column = mColumns - 1;
-
-        while (position >= 0) {
-            adapterPosition = recycler.convertPreLayoutPositionToPostLayout(position);
-            SpanSize spanSize = mSpanSizeLookup.getSpanSize(adapterPosition);
-
-            left = getWidth() / mColumns * spans.get(position).getColumn();
-            top = cellHeight * spans.get(position).getRow();
-            right = left + getWidth() / mColumns * spanSize.getColumns();
-            bottom = top + cellHeight * spanSize.getRows();
-
-            if ((column == 0 || column == mColumns - 1) && bottom < -mOffset) {
-                break;
-            }
-
-            View view = cachedViews.get(position);
-            if (view == null) {
-                view = recycler.getViewForPosition(position);
-                addView(view, 0);
-
-                widthSpec = View.MeasureSpec.makeMeasureSpec(right - left, View.MeasureSpec.EXACTLY);
-                heightSpec = View.MeasureSpec.makeMeasureSpec(bottom - top, View.MeasureSpec.EXACTLY);
-                measureChildWithDecorationsAndMargin(view, widthSpec, heightSpec);
-
-                layoutDecorated(view, left, top + mOffset, right, bottom + mOffset);
-
-                //columns.put(position, new Span(row, column));
-            } else {
-                attachView(view);
-                cachedViews.remove(position);
-            }
-
-            column -= spanSize.getColumns();
-            position--;
-        }
-    }
-
-    private void filUp(View anchorView, RecyclerView.Recycler recycler) {
-        int position = 0;
-        int row = 0;
-        int column = 0;
-        if (anchorView != null) {
-            position = getPosition(anchorView);
-            row = spans.get(position).getRow() - 1;
-            column = mColumns - 1;
-        }
-
-        int adapterPosition;
-        int widthSpec;
-        int heightSpec;
-        int top = 0, left, right, bottom = 0;
-        int[] rowMeasurements = new int[mColumns];
-        int anchorRow = row;
-
-        for (int i = 0; i < mColumns; i++) {
-            rowMeasurements[i] = row + 1;
-        }
-
-        if (position == 3) {
-            int a = 0;
-            a++;
-        }
-
-        position--;
-
-        while (position >= 0) {
-            adapterPosition = recycler.convertPreLayoutPositionToPostLayout(position);
-            SpanSize spanSize = mSpanSizeLookup.getSpanSize(adapterPosition);
-
-            while (rowMeasurements[column] < row) {
-                column--;
-            }
-
-            right = getWidth() - (mColumns - column - 1) * (getWidth() / mColumns);
-            left = right - getWidth() / mColumns * spanSize.getColumns();
-            top = cellHeight * row;
-            bottom = top + cellHeight * spanSize.getRows();
-
-            if (column - spanSize.getColumns() == 0 && bottom < -mOffset) {
-                break;
-            }
-
-            if (bottom > top - mOffset) {
+            for (SpanSize spanSize : rowSpan.getSpans()) {
+                left = cellWidth * spanSize.getColumn();
+                top = row * cellHeight + spanSize.getRow() * cellHeight;
+                right = left + cellWidth * spanSize.getColumns();
+                bottom = top + cellHeight * spanSize.getRows();
 
                 View view = cachedViews.get(position);
                 if (view == null) {
@@ -181,102 +103,20 @@ public class SpannedGridLayoutManager extends RecyclerView.LayoutManager {
                     measureChildWithDecorationsAndMargin(view, widthSpec, heightSpec);
 
                     layoutDecorated(view, left, top + mOffset, right, bottom + mOffset);
-
-                    //columns.put(position, new Span(row, column));
                 } else {
                     attachView(view);
                     cachedViews.remove(position);
                 }
 
-                Log.d("MEASURE", rowMeasurements[0] + " " + rowMeasurements[1] + " " + rowMeasurements[2] + " " + rowMeasurements[3] + " " + rowMeasurements[4] + " " + rowMeasurements[5]);
-                for (int i = 0; i < spanSize.getColumns(); i++) {
-                    rowMeasurements[column - i] -= spanSize.getRows();
-                }
-
-                row -= spanSize.getRows();
-            } else {
-                row = anchorRow;
-                column = mColumns - 1;
+                position++;
             }
 
-            position--;
-        }
-    }
-
-    private void fillDown(View anchorView, RecyclerView.Recycler recycler) {
-        int position = 0;
-        int row = 0;
-        int column = 0;
-        if (anchorView != null) {
-            position = getPosition(anchorView);
-            row = spans.get(position).getRow();
-            column = 0;
-        }
-        int itemsCount = getItemCount();
-        int adapterPosition;
-        int widthSpec;
-        int heightSpec;
-        int top = 0, left, right, bottom = 0;
-        int height = getHeight();
-        int[] rowMeasurements = new int[mColumns];
-
-        if (spans.size() > 0) {
-            for (int i = 0; i < mColumns; i++) {
-                rowMeasurements[i] = spans.get(position).getRow();
-            }
-        }
-
-        while (position < itemsCount) {
-
-            adapterPosition = recycler.convertPreLayoutPositionToPostLayout(position);
-            SpanSize spanSize = mSpanSizeLookup.getSpanSize(adapterPosition);
-
-            if (column + spanSize.getColumns() > mColumns) {
-                row++;
-                column = 0;
+            if (bottom > height - mOffset) {
+                return;
             }
 
-            while (rowMeasurements[column] > row) {
-                column++;
-                if (column + spanSize.getColumns() > mColumns) {
-                    row++;
-                    column = 0;
-                }
-            }
-
-            left = getWidth() / mColumns * column;
-            top = cellHeight * row;
-            right = left + getWidth() / mColumns * spanSize.getColumns();
-            bottom = top + cellHeight * spanSize.getRows();
-
-            if ((column == 0 || column == mColumns - 1) && top > height - mOffset) {
-                Log.d("COLUMN", position + " " + column);
-                break;
-            }
-
-            spans.put(position, new Span(row, column));
-
-            View view = cachedViews.get(position);
-            if (view == null) {
-                view = recycler.getViewForPosition(position);
-                addView(view);
-
-                widthSpec = View.MeasureSpec.makeMeasureSpec(right - left, View.MeasureSpec.EXACTLY);
-                heightSpec = View.MeasureSpec.makeMeasureSpec(bottom - top, View.MeasureSpec.EXACTLY);
-                measureChildWithDecorationsAndMargin(view, widthSpec, heightSpec);
-
-                layoutDecorated(view, left, top + mOffset, right, bottom + mOffset);
-            } else {
-                attachView(view);
-                cachedViews.remove(position);
-            }
-
-            for (int i = 0; i < spanSize.getColumns(); i++) {
-                rowMeasurements[i + column] += spanSize.getRows();
-            }
-
-            column += spanSize.getColumns();
-            position++;
+            row += rowSpan.getRows();
+            template++;
         }
     }
 
@@ -322,6 +162,20 @@ public class SpannedGridLayoutManager extends RecyclerView.LayoutManager {
         int delta = scrollBy(dy);
         delta = -delta;
         mOffset += delta;
+        Row row = mSpanSizeLookup.getSpanSize(mAnchorTemplate);
+        if (-mOffset - mLastOffset > row.getRows() * cellHeight) {
+            mPosition += row.getSpans().size();
+            mAnchorRow += row.getRows();
+            mAnchorTemplate++;
+            mLastOffset += row.getRows() * cellHeight;
+        } else if (-mOffset - mLastOffset < 0) {
+            row = mSpanSizeLookup.getSpanSize(mAnchorTemplate - 1);
+            mPosition -= row.getSpans().size();
+            mAnchorRow -= row.getRows();
+            mAnchorTemplate--;
+            mLastOffset -= row.getRows() * cellHeight;
+        }
+
         offsetChildrenVertical(delta);
         fill(recycler);
         return delta;
@@ -346,9 +200,9 @@ public class SpannedGridLayoutManager extends RecyclerView.LayoutManager {
         if (dy < 0) {
             View firstView = getChildAt(0);
             int firstViewAdapterPos = getPosition(firstView);
-            if (firstViewAdapterPos > 0) { //если верхняя вюшка не самая первая в адаптере
+            if (firstViewAdapterPos > 0) {
                 delta = dy;
-            } else { //если верхняя вьюшка самая первая в адаптере и выше вьюшек больше быть не может
+            } else {
                 int viewTop = getDecoratedTop(firstView);
                 delta = Math.max(viewTop, dy);
             }
@@ -364,34 +218,5 @@ public class SpannedGridLayoutManager extends RecyclerView.LayoutManager {
             }
         }
         return delta;
-    }
-
-    private View getAnchorView() {
-        /*int childCount = getChildCount();
-        int centerX = getWidth() / 2;
-        int centerY = getHeight() / 2;
-        View centerView = null;
-        for (int i = 0; i < childCount; i++) {
-            View view = getChildAt(i);
-            int top = getDecoratedTop(view);
-            int bottom = getDecoratedBottom(view);
-            int left = getDecoratedLeft(view);
-            int right = getDecoratedRight(view);
-            if (left < centerX && right > centerX && top < centerY && bottom > centerY) {
-                centerView = view;
-            }
-        }
-        return centerView;*/
-        int childCount = getChildCount();
-        View firstView = null;
-        for (int i = 0; i < childCount; i++) {
-            View view = getChildAt(i);
-            int bottom = getDecoratedBottom(view);
-            if (bottom >= 0) {
-                firstView = view;
-                break;
-            }
-        }
-        return firstView;
     }
 }
